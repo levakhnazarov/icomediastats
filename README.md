@@ -1,3 +1,1 @@
-# ICO media stats parser
-# icomediastats
-# icomediastats
+# ICO media stats harvester
