@@ -245,6 +245,25 @@ const insertScoreToDB_ = function (score) {
   return models.icos_scores.create(score)
 }
 
+/**
+ * Select pinDate from Table `icos_pin`
+ * @param ico_id - int
+ * @private
+ */
+const getIcoLastPinMsgDate_ = function (ico_id) {
+  const dbinst = prodIcowalletInstance()
+
+  dbinst.query(`select date from icos_pin where ico_id = ${ico_id} order by date desc limit 1`)
+    .spread((result, metadata) => {
+      if(result.length > 0){
+        return result[0].date
+      }
+    })
+
+}
+
+
+
 
 const simpleWaitTransaction = function (ms) {
   const start = new Date().getTime()
@@ -279,6 +298,20 @@ const updateExchange_ = async function (exchange) {
 }
 
 /**
+ * Call functions for updating pinned messages
+ * @param ico - Object
+ * @returns score - Object
+ * @private
+ */
+const getUpdatedPin_ = async function (ico) {
+  return {
+    ico_id: ico.id,
+    result: await require('./telegram').updatePinnedMessages(ico.telegram)
+  }
+}
+
+
+/**
  * Call functions for updating ico score
  * @param ico - Object
  * @returns score - Object
@@ -302,24 +335,6 @@ const updateIco_ = async function (ico) {
     created_at: new Date(),
   }
   const result = await insertScoreToDB_(scores)
-
-  return scores
-}
-
-
-/**
- * Call functions for updating pinned messages
- * @param ico - Object
- * @returns score - Object
- * @private
- */
-const updatePinned_ = async function (ico) {
-  const scores = {
-    ico_id: ico.id,
-    telegram: await require('./telegram').updatePinnedMessages(ico.telegram),
-    created_at: new Date(),
-  }
-  const result = await insertPinnedScoresToDB_(scores)
 
   return scores
 }
@@ -468,7 +483,24 @@ const updateYoutubeScores_ = async function () {
 
 /**
  * Insert score to Table `exchange_ranks`
- * @param exchange - Object
+ * @param icos - Object
+ * @private
+ */
+let insertPinnedScoresToDB_ = function(icos){
+  const sequelize = prodIcowalletInstance()
+  for (let i = 0; i < icos.length; i++) {
+    sequelize.query(`insert into icos_pin set icos_id = ${icos[i].id}, date = ${icos[i].date}, message = ${icos[i].message}`)
+      .spread((result, metadata) => {
+        console.log('added to db: ',i, icos[i].name,result, metadata)
+      })
+  }
+
+  return true
+}
+
+/**
+ * Insert score to Table `exchange_ranks`
+ * @param icos - Object
  * @private
  */
 let insertYoutubeScoreToDB_ = function (icos) {
@@ -483,23 +515,29 @@ let insertYoutubeScoreToDB_ = function (icos) {
   return true
 }
 /**
- * Update ICOs Scores every day
+ * Update Pinned Messages
  * @private
  */
-const updateIcoScores_ = async function () {
+const updatePinnedMsgs_ = async function () {
   const icos = await getNotFinishedIcos_()
+  if (icos.length === 0) return false
+  const results = []
 
-  sendSlackNotifyEvent_({}, `start web crawling '${icos.length}' icos on. ${os.hostname()} with ui division by ${division}`, 'header', '#439FE0')
+  sendSlackNotifyEvent_({}, `pinned messages for '${icos.length}' ico on. ${os.hostname()} `, 'header', '#e00009')
   const analyticsDTO = {
-    telegram: { contentError: 0, serverError: 0, parsed: 0, customError: 0, _averageTime: 0 },
-    bitcointalk: { contentError: 0, serverError: 0, parsed: 0, customError: 0, _averageTime: 0 },
-    twitter: { contentError: 0, serverError: 0, parsed: 0, customError: 0, _averageTime: 0 },
-    facebook: { contentError: 0, serverError: 0, parsed: 0, customError: 0, _averageTime: 0 },
-    reddit: { contentError: 0, serverError: 0, parsed: 0, customError: 0, _averageTime: 0 },
-    medium: { contentError: 0, serverError: 0, parsed: 0, customError: 0, _averageTime: 0 },
-    bing: { contentError: 0, serverError: 0, parsed: 0, customError: 0, _averageTime: 0 },
-    alexa_rank: { contentError: 0, serverError: 0, parsed: 0, customError: 0, _averageTime: 0 },
+    telegram: { allProjects: 0, projectsWithPins: 0, projectsWithNoPins: 0, projectsWithUpdatedPins: 0 },
   }
+
+  for (const iterator in icos) {
+    const pinnedObject = await getUpdatedPin_(icos[iterator])
+    const lastPinnedMsgDate = getIcoLastPinMsgDate_(icos[iterator].id)
+    if(pinnedObject.result.hasOwnProperty('date') && pinnedObject.result.date > lastPinnedMsgDate) {
+      results.push(pinnedObject)
+    }
+  }
+  const result = await insertPinnedScoresToDB_(results)
+
+  return true
 
   if (icos.length > 0) {
     const avgChunkExecTime = []; let countPidOperations = 0; let
@@ -514,7 +552,7 @@ const updateIcoScores_ = async function () {
       for (const _mediaSrc in icoStatsObj) {
         if (icoStatsObj.hasOwnProperty(_mediaSrc) && analyticsDTO.hasOwnProperty(_mediaSrc)) {
           icoStatsObj[_mediaSrc] = (!isNaN(parseFloat(icoStatsObj[_mediaSrc]))
-                        && isFinite(icoStatsObj[_mediaSrc])) ? icoStatsObj[_mediaSrc] : -5
+            && isFinite(icoStatsObj[_mediaSrc])) ? icoStatsObj[_mediaSrc] : -5
 
           switch (icoStatsObj[_mediaSrc]) {
             case -1:
@@ -556,26 +594,23 @@ const updateIcoScores_ = async function () {
 }
 
 /**
- * Update Pinned Messages
+ * Update ICOs Scores every day
  * @private
  */
-const updatePinnedMsgs_ = async function () {
+const updateIcoScores_ = async function () {
   const icos = await getNotFinishedIcos_()
 
-  sendSlackNotifyEvent_({}, `pinned messages for '${icos.length}' ico on. ${os.hostname()} `, 'header', '#e00009')
+  sendSlackNotifyEvent_({}, `start web crawling '${icos.length}' icos on. ${os.hostname()} with ui division by ${division}`, 'header', '#439FE0')
   const analyticsDTO = {
-    telegram: { allProjects: 0, projectsWithPins: 0, projectsWithNoPins: 0, projectsWithUpdatedPins: 0 },
+    telegram: { contentError: 0, serverError: 0, parsed: 0, customError: 0, _averageTime: 0 },
+    bitcointalk: { contentError: 0, serverError: 0, parsed: 0, customError: 0, _averageTime: 0 },
+    twitter: { contentError: 0, serverError: 0, parsed: 0, customError: 0, _averageTime: 0 },
+    facebook: { contentError: 0, serverError: 0, parsed: 0, customError: 0, _averageTime: 0 },
+    reddit: { contentError: 0, serverError: 0, parsed: 0, customError: 0, _averageTime: 0 },
+    medium: { contentError: 0, serverError: 0, parsed: 0, customError: 0, _averageTime: 0 },
+    bing: { contentError: 0, serverError: 0, parsed: 0, customError: 0, _averageTime: 0 },
+    alexa_rank: { contentError: 0, serverError: 0, parsed: 0, customError: 0, _averageTime: 0 },
   }
-  if (icos.length > 0) {
-    for (const iterator in icos) {
-      const localTime = Date.now()
-      const icoStatsObj = await updateIco_(icos[iterator])
-      const timeSpent = (Date.now() - localTime) / 1000
-
-    }
-
-  }
-
 
   if (icos.length > 0) {
     const avgChunkExecTime = []; let countPidOperations = 0; let
@@ -590,7 +625,7 @@ const updatePinnedMsgs_ = async function () {
       for (const _mediaSrc in icoStatsObj) {
         if (icoStatsObj.hasOwnProperty(_mediaSrc) && analyticsDTO.hasOwnProperty(_mediaSrc)) {
           icoStatsObj[_mediaSrc] = (!isNaN(parseFloat(icoStatsObj[_mediaSrc]))
-            && isFinite(icoStatsObj[_mediaSrc])) ? icoStatsObj[_mediaSrc] : -5
+                        && isFinite(icoStatsObj[_mediaSrc])) ? icoStatsObj[_mediaSrc] : -5
 
           switch (icoStatsObj[_mediaSrc]) {
             case -1:

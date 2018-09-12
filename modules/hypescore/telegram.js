@@ -45,6 +45,10 @@ function newApiInstance () {
 
 const runShellPy =  function (channelName) {
   return new Promise(async resolve => {
+    const resp = {
+      message: '',
+      date: '',
+    }
     console.log('python3 '+__dirname+'/doc.py -api_id ' + process.env.TELEGRAM_CORE_API_ID + ' -api_name ' +
       process.env.TELEGRAM_CORE_APP_SHORT_NAME + ' -channel_name ' + channelName + ' -api_hash ' + process.env.TELEGRAM_CORE_API_HASH)
 
@@ -53,9 +57,12 @@ const runShellPy =  function (channelName) {
         process.env.TELEGRAM_CORE_APP_SHORT_NAME + ' -channel_name ' + channelName + ' -api_hash ' + process.env.TELEGRAM_CORE_API_HASH)
       console.log('stdout:', stdout);
       console.log('stderr:', stderr);
+      resp.date = x.toJSON().slice(0, 19).replace('T', ' ')
       resolve(stdout)
+
     }catch(e){
-      resolve(e.message)
+      resp.error = e.message
+      resolve(resp)
     }
   })
 }
@@ -101,11 +108,8 @@ const getChatMembersCount_ = async function (chat_id) {
     }
   })
 }
-
-const updatePinnedMessages_ = async function (chat_id) {
-  requestCount++
-  console.log(requestCount, chat_id)
-  if (chat_id === '' || chat_id === null || chat_id === undefined || chat_id.search(/joinchat/) !== -1) { return -1 }
+const prepareChatId_ = function (chat_id){
+  if (chat_id === '' || chat_id === null || chat_id === undefined || chat_id.search(/joinchat/) !== -1) { return false }
   if (chat_id.search(/https:\/\/t.me\//) !== -1) { chat_id = chat_id.split('https://t.me/')[1] }
 
   chat_id = chat_id.replace('https:www.t.me', '')
@@ -113,34 +117,21 @@ const updatePinnedMessages_ = async function (chat_id) {
   if (chat_id.search(/@/) === -1) { chat_id = `@${chat_id}` }
 
   chat_id = chat_id.replace(/\//g, '')
+  if (chat_id && chat_id !== '') {
+    return chat_id
+  }else{
+    return false
+  }
 
-  let resp = await runShellPy(chat_id)
-  logger.info(resp)
+}
 
-  return getApiInstance().getChatMembersCount({
-    chat_id,
-  }).then((data) => {
-    retry = 0
-    return data
-  }).catch((err) => {
-    if (err.statusCode == 429) {
-      // return -3;
-      if (retry < 5) {
-        logger.error('error 429 with ', chat_id, ' ', err.message)
 
-        apiInstance = false
-        getChatMembersCount_(chat_id)
-      } else {
-        retry = 0
-        logger.error(`Telegram: error ${err}occur on getting chat members count: \`${chat_id}\`. ${err.message}`)
-        return -3
-      }
-      retry++
-    } else {
-      logger.error(`Telegram: error ${err.statusCode}occur on getting chat members count: \`${chat_id}\`. ${err.message}`)
-      return -2
-    }
-  })
+const updatePinnedMessages_ = async function (chat_id) {
+  const chatId = prepareChatId_(chat_id)
+  if (!chatId) return false
+
+  let resp = await runShellPy(chatId)
+  return resp
 }
 
 module.exports = {
