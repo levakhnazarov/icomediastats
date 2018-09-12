@@ -1,0 +1,17 @@
+version: "3"
+services:
+  mysql:
+    image: mysql:latest
+    container_name: mysql_icorating
+    ports:
+      - 3306:3306
+    env_file: mysql.env
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: myadmin_icorating
+    ports:
+      - 8080:80
+    links:
+      - mysql
+    env_file: phpmyadmin.env

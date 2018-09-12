@@ -1,0 +1,33 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Bower dependency directory (https://bower.io/)
+bower_components
+
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# Typescript v1 declaration files
+typings/
+
+# Optional npm cache directory
+.npm
+
+
+# dotenv environment variables file
+.env
+
+.idea/*
+
+assets/people/*
+!assets/people/no-image.jpg
+
+package-lock.json
+
+# Docker
+docker-compose/*.env
