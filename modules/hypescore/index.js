@@ -441,13 +441,18 @@ const updateYoutubeScores_ = async function () {
       logger.info('work')
       logger.info(resultYoutubeArr.length)
 
-      var fs = require('fs');
-      var stream = fs.createWriteStream("result.json");
-      stream.once('open', function(fd) {
-          stream.write(JSON.stringify(resultYoutubeArr));
-          stream.end();
-      });
+      // var fs = require('fs');
+      // var stream = fs.createWriteStream("result.json");
+      // stream.once('open', function(fd) {
+      //     stream.write(JSON.stringify(resultYoutubeArr));
+      //     console.log("end!!!")
+      //     stream.end();
+      // });
       const updatedYouTubeIcosScore = insertYoutubeScoreToDB_(resultYoutubeArr)
+
+      let updviews = resultYoutubeArr.filter(function(x){return x.views > 0}).length
+      let updsubs = resultYoutubeArr.filter(function(x){return x.subscribers > 0}).length
+      slack.note(updviews + ' icos with views, ' + updsubs + ' icos with subs')
 
       resolve(updatedYouTubeIcosScore)
     } catch (e) {
@@ -487,13 +492,27 @@ const updateYoutubeScores_ = async function () {
  * @private
  */
 let insertPinnedScoresToDB_ = function(icos){
+
   const sequelize = prodIcowalletInstance()
-  for (let i = 0; i < icos.length; i++) {
-    sequelize.query(`insert into icos_pin set icos_id = ${icos[i].id}, date = ${icos[i].date}, message = ${icos[i].message}`)
-      .spread((result, metadata) => {
-        console.log('added to db: ',i, icos[i].name,result, metadata)
-      })
-  }
+
+  var buffer = new Buffer(icos.result.message);
+  var toHex = buffer.toString('hex');
+
+
+  sequelize.query('insert into icos_pin set ico_id = :ico_id, date = :date, message = :message',
+    { replacements: { ico_id: icos.ico_id, date: icos.result.date, message: toHex }, type: sequelize.QueryTypes.INSERT }
+  ).then(projects => {
+    return true
+  })
+
+
+  // for (let i = 0; i < icos.length; i++) {
+  //   console.log('added to db: ', icos.ico_id, icos.result.date, icos.result.message)
+  //   console.log('insert into icos_pin set ico_id = ' + icos.ico_id + ', date = ' + icos.result.date + ', message = ' + icos.result.message )
+  //   sequelize.query('insert into icos_pin set ico_id = ' + icos.ico_id + ', date = ' + icos.result.date + ', message = '' + icos.result.message )
+  //     .spread((result, metadata) => {
+  //     })
+  // }
 
   return true
 }
@@ -529,68 +548,20 @@ const updatePinnedMsgs_ = async function () {
   }
 
   for (const iterator in icos) {
+
     const pinnedObject = await getUpdatedPin_(icos[iterator])
     const lastPinnedMsgDate = getIcoLastPinMsgDate_(icos[iterator].id)
-    if(pinnedObject.result.hasOwnProperty('date') && pinnedObject.result.date > lastPinnedMsgDate) {
-      results.push(pinnedObject)
+
+    console.log(pinnedObject, pinnedObject.result.date, lastPinnedMsgDate)
+    if(pinnedObject.result.hasOwnProperty('date') && (typeof lastPinnedMsgDate === 'undefined' || new Date(pinnedObject.result.date) > new Date(lastPinnedMsgDate))){
+      if (pinnedObject.result.date === '' || pinnedObject.result.message === '') continue
+        results.push(pinnedObject)
+      // console.log(pinnedObject)
+      const result = await insertPinnedScoresToDB_(pinnedObject)
+      // throw new Error("hi")
     }
   }
-  const result = await insertPinnedScoresToDB_(results)
-
-  return true
-
-  if (icos.length > 0) {
-    const avgChunkExecTime = []; let countPidOperations = 0; let
-      countChunkStats = null
-
-    for (const iterator in icos) {
-      simpleWaitTransaction(2000)
-      const localTime = Date.now()
-      const icoStatsObj = await updateIco_(icos[iterator])
-      const timeSpent = (Date.now() - localTime) / 1000
-
-      for (const _mediaSrc in icoStatsObj) {
-        if (icoStatsObj.hasOwnProperty(_mediaSrc) && analyticsDTO.hasOwnProperty(_mediaSrc)) {
-          icoStatsObj[_mediaSrc] = (!isNaN(parseFloat(icoStatsObj[_mediaSrc]))
-            && isFinite(icoStatsObj[_mediaSrc])) ? icoStatsObj[_mediaSrc] : -5
-
-          switch (icoStatsObj[_mediaSrc]) {
-            case -1:
-              analyticsDTO[_mediaSrc].contentError++
-              break
-            case -2:
-              analyticsDTO[_mediaSrc].serverError++
-              break
-            default:
-              if (icoStatsObj[_mediaSrc] !== undefined && icoStatsObj[_mediaSrc] > 0) {
-                analyticsDTO[_mediaSrc].parsed++
-              }
-              if (icoStatsObj[_mediaSrc] !== undefined && icoStatsObj[_mediaSrc] < 0) {
-                analyticsDTO[_mediaSrc].customError++
-              }
-              break
-          }
-          if (!countChunkStats || (countPidOperations % division) == 0) {
-            analyticsDTO[_mediaSrc]._averageTime = avgChunkExecTime.join('').length / avgChunkExecTime.length
-          }
-        }
-      }
-      avgChunkExecTime.push(timeSpent)
-      countPidOperations++
-
-
-      // logger.info(countPidOperations );
-      if ((countPidOperations % division) == 0) {
-        console.log(`${countPidOperations} .........`)
-        countChunkStats = countPidOperations
-        sendSlackNotifyEvent_(analyticsDTO, '', `currently processed: ${countPidOperations} of: ${icos.length}`, '#e00032')
-        simpleWaitTransaction(300000)
-      }
-    }
-  } else {
-    slack.note('parser did not worked because of no ico in query result')
-  }
-  _dayIterator++
+  slack.note(results.length + ' was added as new pin messages')
 }
 
 /**
@@ -731,8 +702,8 @@ const initPinnedMsgs_ = async function () {
  * @private
  */
 let updateScores_ = async function () {
-  // await updateYoutubeScores_()
-  // await updateExchangesScores_()
+  await updateYoutubeScores_()
+  await updateExchangesScores_()
   await updateIcoScores_()
 }
 

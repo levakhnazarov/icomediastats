@@ -55,10 +55,16 @@ const runShellPy =  function (channelName) {
     try{
       const { stdout, stderr } = await exec('python3 '+__dirname+'/doc.py -api_id ' + process.env.TELEGRAM_CORE_API_ID + ' -api_name ' +
         process.env.TELEGRAM_CORE_APP_SHORT_NAME + ' -channel_name ' + channelName + ' -api_hash ' + process.env.TELEGRAM_CORE_API_HASH)
-      console.log('stdout:', stdout);
-      console.log('stderr:', stderr);
-      resp.date = x.toJSON().slice(0, 19).replace('T', ' ')
-      resolve(stdout)
+      // console.log(typeof stdout, 'stdout:', stdout);
+      // console.log('stderr:', stderr);
+      // resp.date = x.toJSON().slice(0, 19).replace('T', ' ')
+      if(typeof stdout === 'string'){
+        let tempResp = JSON.parse(stdout)
+        // console.log(tempResp)
+        resp.date = tempResp.date.slice(0, 19).replace('T', ' ')
+        resp.message = tempResp.message
+      }
+      resolve(resp)
 
     }catch(e){
       resp.error = e.message
@@ -79,9 +85,6 @@ const getChatMembersCount_ = async function (chat_id) {
   if (chat_id.search(/@/) === -1) { chat_id = `@${chat_id}` }
 
   chat_id = chat_id.replace(/\//g, '')
-
-  let resp = await runShellPy(chat_id)
-  logger.info(resp)
 
   return getApiInstance().getChatMembersCount({
     chat_id,

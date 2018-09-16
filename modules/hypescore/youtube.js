@@ -58,12 +58,18 @@ function channelsListById (links, client) {
         part: 'snippet,contentDetails,statistics',
       }, (err, response) => {
         if (err || response.data.items.length === 0) {
+          if (err){
+          console.log(ico, '-', err.message)
+          }
           // if(err) console.log(err)
           callback(call, false)
+
           // reject(err)
         } else {
           const views = response.data.items[0].statistics.viewCount
           const subscribers = response.data.items[0].statistics.subscriberCount
+          console.log(ico, '-views:', views, ' -subs:',subscribers)
+
           callback(call, true, views, subscribers)
         }
         // resolve (response.data);
