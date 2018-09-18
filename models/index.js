@@ -14,6 +14,11 @@ const sequelize = new Sequelize(
   {
     host: process.env.DB_HOST,
     dialect: 'mysql',
+    dialectOptions: {
+      ssl: {
+        ca: fs.readFileSync(__dirname + '../sql.crt.pem'),
+      }
+    },
     logging: false,
     freezeTableName: true,
     operatorsAliases: false,
