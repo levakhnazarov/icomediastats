@@ -2,7 +2,7 @@
 
 const { Op } = require('sequelize')
 const moment = require('moment')
-
+const fs = require('fs')
 
 const division = 100
 const slack = require('slack-notify')(process.env.SLACK_NOTIFY)
@@ -29,7 +29,7 @@ const prodIcoratingInstance = function () {
       dialect: 'mysql',
       dialectOptions: {
         ssl: {
-          ca: fs.readFileSync(__dirname + '../../sql.crt.pem'),
+          ca: fs.readFileSync(__dirname + '/../../sql.crt.pem'),
         }
       },
       logging: false,
@@ -51,7 +51,7 @@ const prodIcowalletInstance = function () {
       dialect: 'mysql',
       dialectOptions: {
         ssl: {
-          ca: fs.readFileSync(__dirname + '../../sql.crt.pem'),
+          ca: fs.readFileSync(__dirname + '/../../sql.crt.pem'),
         }
       },
       logging: false,

@@ -16,7 +16,7 @@ const sequelize = new Sequelize(
     dialect: 'mysql',
     dialectOptions: {
       ssl: {
-        ca: fs.readFileSync(__dirname + '../sql.crt.pem'),
+        ca: fs.readFileSync(__dirname + '/../sql.crt.pem'),
       }
     },
     logging: false,
