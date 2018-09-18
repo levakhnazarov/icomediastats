@@ -238,10 +238,10 @@ let isObject = function (a) {
  * @param exchange - Object
  * @private
  */
-const insertExchangeScoreToDB_ = function (exchange) {
-  const sequelize = prodIcoratingInstance()
+const insertExchangeScoreToDB_ = function (exchange, db) {
 
-  sequelize.query(`update exchanges set alexa_rank = ${exchange.alexa_rank}, twitter_followers = ${exchange.twitter_followers} where id = ${exchange.exchange_id}`)
+
+  db.query(`update exchanges set alexa_rank = ${exchange.alexa_rank}, twitter_followers = ${exchange.twitter_followers} where id = ${exchange.exchange_id}`)
     .spread((result, metadata) => models.exchange_ranks.create(exchange))
 }
 
@@ -292,6 +292,7 @@ const simpleWaitTransaction = function (ms) {
 const updateExchange_ = async function (exchange) {
   let twitter = await require('./twitter').countFollowers(exchange.twitter)
   let alexa = await require('./alexa').countRank(exchange.url)
+  const db = prodIcoratingInstance()
 
   twitter = (typeof twitter !== 'undefined') ? twitter : 0
   alexa = (typeof alexa !== 'undefined') ? alexa : 0
@@ -302,7 +303,7 @@ const updateExchange_ = async function (exchange) {
     alexa_rank: alexa,
     created_at: new Date(),
   }
-  const result = await insertExchangeScoreToDB_(scores)
+  const result = await insertExchangeScoreToDB_(scores, db)
 
   return scores
 }
@@ -379,6 +380,7 @@ const updateExchangesScores_ = async function () {
 const updateYoutubeScores_ = async function () {
   return new Promise((async (resolve, reject) => {
     const icos = await getNotFinishedIcos_()
+    const db = prodIcowalletInstance()
 
 
     // sendSlackNotifyEvent_({}, "youtube analytics for '" + icos.length + "' on. " + os.hostname() + " with ui division by " + division, "header", "#e02a20", false);
@@ -458,7 +460,7 @@ const updateYoutubeScores_ = async function () {
       //     console.log("end!!!")
       //     stream.end();
       // });
-      const updatedYouTubeIcosScore = insertYoutubeScoreToDB_(resultYoutubeArr)
+      const updatedYouTubeIcosScore = insertYoutubeScoreToDB_(resultYoutubeArr, db)
 
       let updviews = resultYoutubeArr.filter(function(x){return x.views > 0}).length
       let updsubs = resultYoutubeArr.filter(function(x){return x.subscribers > 0}).length
@@ -501,9 +503,9 @@ const updateYoutubeScores_ = async function () {
  * @param icos - Object
  * @private
  */
-let insertPinnedScoresToDB_ = function(icos){
+let insertPinnedScoresToDB_ = function(icos, db){
 
-  const sequelize = prodIcowalletInstance()
+
 
   var buffer = new Buffer(icos.result.message);
   var toHex = buffer.toString('hex');
@@ -532,11 +534,11 @@ let insertPinnedScoresToDB_ = function(icos){
  * @param icos - Object
  * @private
  */
-let insertYoutubeScoreToDB_ = function (icos) {
-  const sequelize = prodIcowalletInstance()
+let insertYoutubeScoreToDB_ = function (icos, db) {
+
 
   for (let i = 0; i < icos.length; i++) {
-    sequelize.query(`update icos_scores set youtube_followers = ${icos[i].subscribers}, youtube_views = ${icos[i].views} where ico_id = ${icos[i].ico_id} order by created_at desc limit 1`)
+    db.query(`update icos_scores set youtube_followers = ${icos[i].subscribers}, youtube_views = ${icos[i].views} where ico_id = ${icos[i].ico_id} order by created_at desc limit 1`)
       .spread((result, metadata) => {
         // console.log(i, icos[i].name,result)
       })
@@ -549,6 +551,7 @@ let insertYoutubeScoreToDB_ = function (icos) {
  */
 const updatePinnedMsgs_ = async function () {
   const icos = await getNotFinishedIcos_()
+  const db = prodIcowalletInstance()
   if (icos.length === 0) return false
   const results = []
 
@@ -567,7 +570,7 @@ const updatePinnedMsgs_ = async function () {
       if (pinnedObject.result.date === '' || pinnedObject.result.message === '') continue
         results.push(pinnedObject)
       // console.log(pinnedObject)
-      const result = await insertPinnedScoresToDB_(pinnedObject)
+      const result = await insertPinnedScoresToDB_(pinnedObject, db)
       // throw new Error("hi")
     }
   }
