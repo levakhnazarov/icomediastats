@@ -27,11 +27,12 @@ const prodIcoratingInstance = function () {
     {
       host: process.env.DB_PROD_HOST,
       dialect: 'mysql',
-      // pool: {
-      //   max: 10,
-      //   min: 0,
-      //   idle: 100000
-      // },
+      pool: {
+        max: 10,
+        min: 0,
+        idle: 100000,
+        acquire: 1000000,
+      },
       dialectOptions: {
         ssl: {
           ca: fs.readFileSync(__dirname + '/../../sql.crt.pem'),
@@ -54,11 +55,12 @@ const prodIcowalletInstance = function () {
     {
       host: process.env.DB_HOST,
       dialect: 'mysql',
-      // pool: {
-      //   max: 10,
-      //   min: 0,
-      //   idle: 1000000
-      // },
+      pool: {
+        max: 10,
+        min: 0,
+        idle: 100000,
+        acquire: 1000000,
+      },
       dialectOptions: {
         ssl: {
           ca: fs.readFileSync(__dirname + '/../../sql.crt.pem'),
