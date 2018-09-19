@@ -289,10 +289,10 @@ const simpleWaitTransaction = function (ms) {
  * @returns score - Object
  * @private
  */
-const updateExchange_ = async function (exchange) {
+const updateExchange_ = async function (exchange, db) {
   let twitter = await require('./twitter').countFollowers(exchange.twitter)
   let alexa = await require('./alexa').countRank(exchange.url)
-  const db = prodIcoratingInstance()
+
 
   twitter = (typeof twitter !== 'undefined') ? twitter : 0
   alexa = (typeof alexa !== 'undefined') ? alexa : 0
@@ -358,14 +358,14 @@ const updateIco_ = async function (ico) {
 
 const updateExchangesScores_ = async function () {
   const exchanges = await getExchanges_()
-
+  const db = prodIcoratingInstance()
   sendSlackNotifyEvent_({}, `start web crawling '${exchanges.length}' exchanges on. ${os.hostname()} with ui division by ${division}`, 'header', '#e02a20', false)
   let countPidOperations = 0; let twitterNoResults = 0; let
     alexaNoResults = 0
 
 
   for (const iterator in exchanges) {
-    const result = await updateExchange_(exchanges[iterator])
+    const result = await updateExchange_(exchanges[iterator], db)
 
     if (result.alexa_rank < 0) alexaNoResults++
     if (result.twitter_followers < 0) twitterNoResults++
