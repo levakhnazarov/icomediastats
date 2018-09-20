@@ -523,8 +523,8 @@ let insertPinnedScoresToDB_ = function(icos, db){
   var toHex = buffer.toString('hex');
 
 
-  sequelize.query('insert into icos_pin set ico_id = :ico_id, date = :date, message = :message',
-    { replacements: { ico_id: icos.ico_id, date: icos.result.date, message: toHex }, type: sequelize.QueryTypes.INSERT }
+  db.query('insert into icos_pin set ico_id = :ico_id, date = :date, message = :message',
+    { replacements: { ico_id: icos.ico_id, date: icos.result.date, message: toHex }, type: db.QueryTypes.INSERT }
   ).then(projects => {
     return true
   })
