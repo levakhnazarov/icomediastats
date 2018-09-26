@@ -27,17 +27,17 @@ const prodIcoratingInstance = function () {
     {
       host: process.env.DB_PROD_HOST,
       dialect: 'mysql',
-      pool: {
-        max: 10,
-        min: 0,
-        idle: 100000,
-        acquire: 1000000,
-      },
-      dialectOptions: {
-        ssl: {
-          ca: fs.readFileSync(__dirname + '/../../sql.crt.pem'),
-        }
-      },
+      // pool: {
+      //   max: 10,
+      //   min: 0,
+      //   idle: 100000,
+      //   acquire: 1000000,
+      // },
+      // dialectOptions: {
+      //   ssl: {
+      //     ca: fs.readFileSync(__dirname + '/../../sql.crt.pem'),
+      //   }
+      // },
       logging: false,
       freezeTableName: true,
       operatorsAliases: false,
@@ -273,15 +273,19 @@ const insertScoreToDB_ = function (score) {
  * @private
  */
 const getIcoLastPinMsgDate_ = function (ico_id) {
-  const dbinst = prodIcowalletInstance()
+  return new Promise((resolve, reject) => {
+    const dbinst = prodIcowalletInstance()
+    dbinst.query('select date from icos_pin where ico_id = ' + ico_id + ' order by date desc limit 1')
+      .then((result, metadata) => {
+        if (result.length > 0 && result[0].length > 0 && result[0][0].hasOwnProperty('date')) {
 
-  dbinst.query(`select date from icos_pin where ico_id = ${ico_id} order by date desc limit 1`)
-    .spread((result, metadata) => {
-      if(result.length > 0){
-        return result[0].date
-      }
-    })
 
+          resolve( result[0][0].date )
+        }else{
+          resolve()
+        }
+      })
+  })
 }
 
 
@@ -574,16 +578,14 @@ const updatePinnedMsgs_ = async function () {
 
   for (const iterator in icos) {
 
+    const lastPinnedMsgDate = await getIcoLastPinMsgDate_(icos[iterator].id)
     const pinnedObject = await getUpdatedPin_(icos[iterator])
-    const lastPinnedMsgDate = getIcoLastPinMsgDate_(icos[iterator].id)
-
-    console.log(pinnedObject, pinnedObject.result.date, lastPinnedMsgDate)
     if(pinnedObject.result.hasOwnProperty('date') && (typeof lastPinnedMsgDate === 'undefined' || new Date(pinnedObject.result.date) > new Date(lastPinnedMsgDate))){
       if (pinnedObject.result.date === '' || pinnedObject.result.message === '') continue
-        results.push(pinnedObject)
-      // console.log(pinnedObject)
+      console.log("got one")
+
+      results.push(pinnedObject)
       const result = await insertPinnedScoresToDB_(pinnedObject, db)
-      // throw new Error("hi")
     }
   }
   slack.note(results.length + ' was added as new pin messages')
